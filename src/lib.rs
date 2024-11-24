@@ -8,6 +8,8 @@
 //! this library supports only the minimal necessary components of the PGP
 //! format to transmit your keys and signatures.
 #![deny(missing_docs, missing_debug_implementations)]
+// Otherwise, bitflags! complains about a 0x0 value
+#![allow(clippy::bad_bit_mask)]
 
 #[macro_use]
 extern crate failure;

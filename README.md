@@ -34,8 +34,8 @@ and understanding the OpenPGP specification.
 The "print" example prints an ASCII armored OpenPGP public key to stdout; you
 can check that using:
 
-```
-$ cargo run --features dalek --example print
+```sh
+cargo run --features dalek --example print
 ```
 
 [dalek]: https://github.com/isislovecruft/ed25519-dalek
