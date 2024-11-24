@@ -1,4 +1,4 @@
-# pbp - Pretty Bad Protocol
+# pbp - Pretty Bad Protocol - pkgx updates
 
 ## Update
 
