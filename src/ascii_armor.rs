@@ -2,7 +2,6 @@
 // specification, converting binary PGP datagrams into ASCII data.
 use std::fmt;
 
-use base64;
 use byteorder::{BigEndian, ByteOrder};
 
 use crate::PgpError;
@@ -15,7 +14,11 @@ impl From<base64::DecodeError> for PgpError {
 }
 
 // Convert from an ASCII armored string into binary data.
-pub fn remove_ascii_armor(s: &str, expected_header: &str, expected_footer: &str) -> Result<Vec<u8>, PgpError> {
+pub fn remove_ascii_armor(
+    s: &str,
+    expected_header: &str,
+    expected_footer: &str,
+) -> Result<Vec<u8>, PgpError> {
     let lines: Vec<&str> = s.lines().map(|s| s.trim()).collect();
     let header = lines.first().ok_or(InvalidAsciiArmor)?;
     let footer = lines.last().ok_or(InvalidAsciiArmor)?;
@@ -28,12 +31,14 @@ pub fn remove_ascii_armor(s: &str, expected_header: &str, expected_footer: &str)
         || header.trim_matches('-').trim() != expected_header
         || footer.trim_matches('-').trim() != expected_footer
     {
-            return Err(InvalidAsciiArmor)
+        return Err(InvalidAsciiArmor);
     }
 
     // Find the end of the header section
     let end_of_headers = 1 + lines.iter().take_while(|l| !l.is_empty()).count();
-    if end_of_headers >= lines.len() - 2 { return Err(InvalidAsciiArmor) }
+    if end_of_headers >= lines.len() - 2 {
+        return Err(InvalidAsciiArmor);
+    }
 
     // Decode the base64'd data
     let ascii_armored: String = lines[end_of_headers..lines.len() - 2].concat();
@@ -42,25 +47,24 @@ pub fn remove_ascii_armor(s: &str, expected_header: &str, expected_footer: &str)
     // Confirm checksum
     let cksum_line = &lines[lines.len() - 2];
     if !cksum_line.starts_with("=") || !cksum_line.len() > 1 {
-        return Err(InvalidAsciiArmor)
+        return Err(InvalidAsciiArmor);
     }
     let mut cksum = [0; 4];
     base64::decode_config_slice(&cksum_line[1..], base64::STANDARD, &mut cksum[..])?;
     if BigEndian::read_u32(&cksum[..]) != checksum_crc24(&data) {
-        return Err(InvalidAsciiArmor)
+        return Err(InvalidAsciiArmor);
     }
 
     Ok(data)
-} 
+}
 
 // Ascii armors data into the formatter
 pub fn ascii_armor(
     header: &'static str,
     footer: &'static str,
-    data: &[u8], 
-    f: &mut fmt::Formatter
-) -> fmt::Result
-{
+    data: &[u8],
+    f: &mut fmt::Formatter,
+) -> fmt::Result {
     // Header Line
     f.write_str("-----")?;
     f.write_str(header)?;
@@ -101,7 +105,6 @@ fn checksum_crc24(data: &[u8]) -> u32 {
         crc ^= (byte as u32) << 16;
 
         for _ in 0..8 {
-
             crc <<= 1;
 
             if (crc & 0x_0100_0000) != 0 {

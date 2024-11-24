@@ -1,14 +1,12 @@
-cargo-features = ["edition"]
-
 [package]
-authors = ["Without Boats <boats@mozilla.com>"]
-description = "bridge non-PGP system to PGP data format"
-edition = "2018"
+authors = ["Without Boats <boats@mozilla.com>", "Jacob Heider <jacob@pkgx.dev>"]
+description = "bridge non-PGP system to PGP data format - pkgx updates"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-name = "pbp"
-version = "0.4.0"
-repository = "https://github.com/withoutboats/pbp"
+name = "pbp_pkgx"
+version = "0.4.1"
+repository = "https://github.com/pkgxdev/pbp-pkgx"
 
 [dependencies]
 base64 = "0.9.2"
@@ -20,12 +18,12 @@ failure = "0.1.1"
 bitflags = "1.0.1"
 
 [dependencies.ed25519-dalek]
-version = "0.7.0"
+version = "2.1.1"
 optional = true
 
 [features]
 dalek = ["ed25519-dalek"]
 
 [dev-dependencies]
-rand = "0.5.4"
+rand = "0.7.3"
 sha2 = "0.6.0"

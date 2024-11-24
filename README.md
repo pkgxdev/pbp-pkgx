@@ -1,5 +1,15 @@
 # pbp - Pretty Bad Protocol
 
+## Update
+
+updated by pkgx to edition 2021.
+
+### TODO
+
+- [ ] fix `cargo test --features dalek`
+
+## Description
+
 This crate lets you generate OpenPGP datagrams from ed25519 keys and
 signatures; it is intended to bridge from a non-PGP system to a transport
 medium that expects PGP data.

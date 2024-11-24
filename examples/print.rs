@@ -1,12 +1,12 @@
+extern crate ed25519_dalek as dalek;
+extern crate pbp_pkgx;
 extern crate rand;
 extern crate sha2;
-extern crate ed25519_dalek as dalek;
-extern crate pbp;
 
+use dalek::Keypair;
+use pbp::{KeyFlags, PgpKey};
 use rand::OsRng;
 use sha2::{Sha256, Sha512};
-use dalek::Keypair;
-use pbp::{PgpKey, KeyFlags};
 
 fn main() {
     let mut cspring = OsRng::new().unwrap();

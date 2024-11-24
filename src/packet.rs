@@ -1,19 +1,22 @@
 use std::ops::Range;
-use std::u16;
 
-use byteorder::{ByteOrder, BigEndian};
+use byteorder::{BigEndian, ByteOrder};
 
-pub(crate) type BigEndianU32  = [u8; 4];
-pub(crate) type BigEndianU16  = [u8; 2];
+pub(crate) type BigEndianU32 = [u8; 4];
+pub(crate) type BigEndianU16 = [u8; 2];
 
-pub(crate) fn write_packet<F: Fn(&mut Vec<u8>)>(data: &mut Vec<u8>, tag: u8, write: F) -> Range<usize> {
+pub(crate) fn write_packet<F: Fn(&mut Vec<u8>)>(
+    data: &mut Vec<u8>,
+    tag: u8,
+    write: F,
+) -> Range<usize> {
     let init = data.len();
     let header_tag = (tag << 2) | 0b_1000_0001;
     data.extend(&[header_tag, 0, 0]);
     write(data);
     let len = data.len() - init - 3;
     assert!(len < u16::MAX as usize);
-    BigEndian::write_u16(&mut data[(init+1)..(init+3)], len as u16);
+    BigEndian::write_u16(&mut data[(init + 1)..(init + 3)], len as u16);
     init..data.len()
 }
 
@@ -26,8 +29,9 @@ pub(crate) fn prepare_packet<F: Fn(&mut Vec<u8>)>(tag: u8, write: F) -> Vec<u8> 
     packet
 }
 
-pub(crate) fn write_subpackets<F>(packet: &mut Vec<u8>, write_each_subpacket: F) where
-    F: Fn(&mut Vec<u8>)
+pub(crate) fn write_subpackets<F>(packet: &mut Vec<u8>, write_each_subpacket: F)
+where
+    F: Fn(&mut Vec<u8>),
 {
     packet.extend(&[0, 0]);
     let init = packet.len();
@@ -48,7 +52,7 @@ pub(crate) fn write_single_subpacket<F: Fn(&mut Vec<u8>)>(packet: &mut Vec<u8>, 
 
 pub(crate) fn write_mpi(data: &mut Vec<u8>, mpi: &[u8]) {
     assert!(mpi.len() < (u16::MAX / 8) as usize);
-    assert!(mpi.len() > 0);
+    assert!(!mpi.is_empty());
     let len = bigendian_u16((mpi.len() * 8 - (mpi[0].leading_zeros() as usize)) as u16);
     data.extend(&len);
     data.extend(mpi);

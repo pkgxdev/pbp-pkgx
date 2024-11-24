@@ -1,43 +1,46 @@
-use std::fmt::{self, Display, Debug};
+use std::fmt::{self, Debug, Display};
 use std::str::FromStr;
-use std::u16;
 
-use byteorder::{ByteOrder, BigEndian};
+use byteorder::{BigEndian, ByteOrder};
 use digest::Digest;
 use typenum::U32;
 
-#[cfg(feature = "dalek")] use ed25519_dalek as dalek;
-#[cfg(feature = "dalek")] use typenum::U64;
+#[cfg(feature = "dalek")]
+use dalek::Signer;
+#[cfg(feature = "dalek")]
+use ed25519_dalek as dalek;
+#[cfg(feature = "dalek")]
+use typenum::U64;
 
 use crate::ascii_armor::{ascii_armor, remove_ascii_armor};
-use crate::Base64;
 use crate::packet::*;
-use crate::{Fingerprint, Signature};
+use crate::Base64;
 use crate::PgpError;
+use crate::{Fingerprint, Signature};
 
 /// The valid types of OpenPGP signatures.
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum SigType {
-    BinaryDocument          = 0x00,
-    TextDocument            = 0x01,
-    Standalone              = 0x02,
-    GenericCertification    = 0x10,
-    PersonaCertification    = 0x11,
-    CasualCertification     = 0x12,
-    PositiveCertification   = 0x13,
-    SubkeyBinding           = 0x18,
-    PrimaryKeyBinding       = 0x19,
-    DirectlyOnKey           = 0x1F,
-    KeyRevocation           = 0x20,
-    SubkeyRevocation        = 0x28,
+    BinaryDocument = 0x00,
+    TextDocument = 0x01,
+    Standalone = 0x02,
+    GenericCertification = 0x10,
+    PersonaCertification = 0x11,
+    CasualCertification = 0x12,
+    PositiveCertification = 0x13,
+    SubkeyBinding = 0x18,
+    PrimaryKeyBinding = 0x19,
+    DirectlyOnKey = 0x1F,
+    KeyRevocation = 0x20,
+    SubkeyRevocation = 0x28,
     CertificationRevocation = 0x30,
-    Timestamp               = 0x40,
-    ThirdPartyConfirmation  = 0x50,
+    Timestamp = 0x40,
+    ThirdPartyConfirmation = 0x50,
 }
 
 /// A subpacket to be hashed into the signed data.
-/// 
+///
 /// See RFC 4880 for more information.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub struct SubPacket<'a> {
@@ -70,17 +73,17 @@ impl PgpSig {
         sig_type: SigType,
         unix_time: u32,
         subpackets: &[SubPacket],
-        sign: F
+        sign: F,
     ) -> PgpSig
-        where
-            Sha256: Digest<OutputSize = U32>,
-            F: Fn(&[u8]) -> Signature,
+    where
+        Sha256: Digest<OutputSize = U32>,
+        F: Fn(&[u8]) -> Signature,
     {
         let data = prepare_packet(2, |packet| {
-            packet.push(4);                 // version number
-            packet.push(sig_type as u8);    // signature class
-            packet.push(22);                // signing algorithm (EdDSA)
-            packet.push(8);                 // hash algorithm (SHA-256)
+            packet.push(4); // version number
+            packet.push(sig_type as u8); // signature class
+            packet.push(22); // signing algorithm (EdDSA)
+            packet.push(8); // hash algorithm (SHA-256)
 
             write_subpackets(packet, |hashed_subpackets| {
                 // fingerprint
@@ -90,7 +93,9 @@ impl PgpSig {
                 });
 
                 // timestamp
-                write_single_subpacket(hashed_subpackets, 2, |packet| packet.extend(&bigendian_u32(unix_time)));
+                write_single_subpacket(hashed_subpackets, 2, |packet| {
+                    packet.extend(&bigendian_u32(unix_time))
+                });
 
                 for &SubPacket { tag, data } in subpackets {
                     write_single_subpacket(hashed_subpackets, tag, |packet| packet.extend(data));
@@ -160,7 +165,7 @@ impl PgpSig {
         let init = self.data.len() - 68;
         let sig_data = &self.data[init..];
         let mut sig = [0; 64];
-        sig[00..32].clone_from_slice(&sig_data[02..34]);
+        sig[00..32].clone_from_slice(&sig_data[2..34]);
         sig[32..64].clone_from_slice(&sig_data[36..68]);
         sig
     }
@@ -190,7 +195,7 @@ impl PgpSig {
             0x30 => SigType::CertificationRevocation,
             0x40 => SigType::Timestamp,
             0x50 => SigType::ThirdPartyConfirmation,
-            _    => panic!("Unrecognized signature type."),
+            _ => panic!("Unrecognized signature type."),
         }
     }
 
@@ -199,10 +204,10 @@ impl PgpSig {
     /// The data to be verified should be inputed by hashing it into the
     /// SHA-256 hasher using the input function.
     pub fn verify<Sha256, F1, F2>(&self, input: F1, verify: F2) -> bool
-        where
-            Sha256: Digest<OutputSize = U32>,
-            F1: FnOnce(&mut Sha256),
-            F2: FnOnce(&[u8], Signature) -> bool,
+    where
+        Sha256: Digest<OutputSize = U32>,
+        F1: FnOnce(&mut Sha256),
+        F2: FnOnce(&[u8], Signature) -> bool,
     {
         let hash = {
             let mut hasher = Sha256::default();
@@ -224,45 +229,47 @@ impl PgpSig {
     #[cfg(feature = "dalek")]
     /// Convert this signature from an ed25519-dalek signature.
     pub fn from_dalek<Sha256, Sha512>(
-        keypair: &dalek::Keypair,
+        keypair: &dalek::SigningKey,
         data: &[u8],
         fingerprint: Fingerprint,
         sig_type: SigType,
         timestamp: u32,
-    ) -> PgpSig 
+    ) -> PgpSig
     where
         Sha256: Digest<OutputSize = U32>,
         Sha512: Digest<OutputSize = U64>,
     {
         PgpSig::new::<Sha256, _>(data, fingerprint, sig_type, timestamp, &[], |data| {
-            keypair.sign::<Sha512>(data).to_bytes()
+            keypair.sign(data).to_bytes()
         })
     }
 
     #[cfg(feature = "dalek")]
     /// Convert this signature to an ed25519-dalek signature.
     pub fn to_dalek(&self) -> dalek::Signature {
-        dalek::Signature::from_bytes(&self.signature()).unwrap()
+        dalek::Signature::from_bytes(&self.signature())
     }
 
     #[cfg(feature = "dalek")]
     /// Verify this signature against an ed25519-dalek public key.
-    pub fn verify_dalek<Sha256, Sha512, F>(&self, key: &dalek::PublicKey, input: F) -> bool
+    pub fn verify_dalek<Sha256, Sha512, F>(&self, key: &dalek::VerifyingKey, input: F) -> bool
     where
         Sha256: Digest<OutputSize = U32>,
         Sha512: Digest<OutputSize = U64>,
         F: FnOnce(&mut Sha256),
     {
         self.verify::<Sha256, _, _>(input, |data, signature| {
-            let sig = dalek::Signature::from_bytes(&signature).unwrap();
-            key.verify::<Sha512>(data, &sig).is_ok()
+            let sig = dalek::Signature::from_bytes(&signature);
+            key.verify_strict(data, &sig).is_ok()
         })
     }
 }
 
 impl Debug for PgpSig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("PgpSig").field("key", &Base64(&self.data[..])).finish()
+        f.debug_struct("PgpSig")
+            .field("key", &Base64(&self.data[..]))
+            .finish()
     }
 }
 
@@ -286,26 +293,34 @@ impl FromStr for PgpSig {
 
 fn find_signature_packet(data: &[u8]) -> Result<(Vec<u8>, &[u8]), PgpError> {
     let (init, len) = match data.first() {
-        Some(&0x88)  => {
-            if data.len() < 2 { return Err(PgpError::InvalidPacketHeader) }
+        Some(&0x88) => {
+            if data.len() < 2 {
+                return Err(PgpError::InvalidPacketHeader);
+            }
             (2, data[1] as usize)
         }
-        Some(&0x89)  => {
-            if data.len() < 3 { return Err(PgpError::InvalidPacketHeader) }
+        Some(&0x89) => {
+            if data.len() < 3 {
+                return Err(PgpError::InvalidPacketHeader);
+            }
             let len = BigEndian::read_u16(&data[1..3]);
             (3, len as usize)
         }
-        Some(&0x8a)  => {
-            if data.len() < 5 { return Err(PgpError::InvalidPacketHeader) }
+        Some(&0x8a) => {
+            if data.len() < 5 {
+                return Err(PgpError::InvalidPacketHeader);
+            }
             let len = BigEndian::read_u32(&data[1..5]);
-            if len > u16::MAX as u32 { return Err(PgpError::UnsupportedPacketLength) }
+            if len > u16::MAX as u32 {
+                return Err(PgpError::UnsupportedPacketLength);
+            }
             (5, len as usize)
         }
-        _            => return Err(PgpError::UnsupportedPacketLength),
+        _ => return Err(PgpError::UnsupportedPacketLength),
     };
 
     if data.len() < init + len {
-        return Err(PgpError::InvalidPacketHeader)
+        return Err(PgpError::InvalidPacketHeader);
     }
 
     let packet = &data[init..][..len];
@@ -325,21 +340,21 @@ fn find_signature_packet(data: &[u8]) -> Result<(Vec<u8>, &[u8]), PgpError> {
 
 fn has_correct_structure(packet: &[u8]) -> Result<(), PgpError> {
     if packet.len() < 6 {
-        return Err(PgpError::UnsupportedSignaturePacket)
+        return Err(PgpError::UnsupportedSignaturePacket);
     }
 
-    if !(packet[0] == 04 && packet[2] == 22 && packet[3] == 08) {
-        return Err(PgpError::UnsupportedSignaturePacket)
+    if !(packet[0] == 4 && packet[2] == 22 && packet[3] == 8) {
+        return Err(PgpError::UnsupportedSignaturePacket);
     }
 
     let hashed_len = BigEndian::read_u16(&packet[4..6]) as usize;
     if packet.len() < hashed_len + 8 {
-        return Err(PgpError::UnsupportedSignaturePacket)
+        return Err(PgpError::UnsupportedSignaturePacket);
     }
 
     let unhashed_len = BigEndian::read_u16(&packet[(hashed_len + 6)..][..2]) as usize;
     if packet.len() != unhashed_len + hashed_len + 78 {
-        return Err(PgpError::UnsupportedSignaturePacket)
+        return Err(PgpError::UnsupportedSignaturePacket);
     }
 
     Ok(())
@@ -348,12 +363,12 @@ fn has_correct_structure(packet: &[u8]) -> Result<(), PgpError> {
 fn has_correct_hashed_subpackets(packet: &[u8]) -> Result<(), PgpError> {
     let hashed_len = BigEndian::read_u16(&packet[4..6]) as usize;
     if hashed_len < 23 {
-        return Err(PgpError::MissingFingerprintSubpacket)
+        return Err(PgpError::MissingFingerprintSubpacket);
     }
 
     // check that the first subpacket is a fingerprint subpacket
     if !(packet[6] == 22 && packet[7] == 33 && packet[8] == 4) {
-        return Err(PgpError::MissingFingerprintSubpacket)
+        return Err(PgpError::MissingFingerprintSubpacket);
     }
 
     Ok(())
